@@ -1,5 +1,6 @@
 // Vercel Serverless Function: Yahoo Finance 일별 시세(OHLCV) 조회
-import yahooFinance from 'yahoo-finance2'
+import YahooFinance from 'yahoo-finance2'
+const yahooFinance = new YahooFinance()
 
 function getPeriodDates(period) {
   const end = new Date()

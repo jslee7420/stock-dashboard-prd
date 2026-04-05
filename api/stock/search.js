@@ -1,6 +1,7 @@
 // Vercel Serverless Function: 종목 검색
 // Yahoo Finance search API + 로컬 종목 리스트 매핑
-import yahooFinance from 'yahoo-finance2'
+import YahooFinance from 'yahoo-finance2'
+const yahooFinance = new YahooFinance()
 
 const STOCK_LIST = [
   { code: '005930', name: '삼성전자' },
