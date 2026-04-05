@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Search, Loader2, Filter, ArrowUpDown, RotateCcw } from 'lucide-react'
 import { KOSPI200_UNIQUE } from '../../lib/kospi200'
-import { mockGetStockDaily } from '../../lib/mockData'
 import { getStockDaily } from '../../lib/api'
 import { calculateAllIndicators } from '../../lib/indicators'
 import { evaluateAll } from '../../lib/scoring'
@@ -31,14 +30,7 @@ export default function Screener() {
       setProgress({ current: i + 1, total })
 
       try {
-        let data
-        try {
-          data = await getStockDaily(stock.code, '3m')
-          if (!data.success || !data.ohlcv || data.ohlcv.length < 30) throw new Error()
-        } catch {
-          data = mockGetStockDaily(stock.code)
-        }
-
+        const data = await getStockDaily(stock.code, '3m')
         if (!data.success || !data.ohlcv || data.ohlcv.length < 30) continue
 
         const indicators = calculateAllIndicators(data.ohlcv)

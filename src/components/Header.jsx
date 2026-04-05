@@ -18,18 +18,15 @@ export default function Header() {
         <div className={cn(
           'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full',
           apiStatus === 'connected' && 'bg-success/20 text-success',
-          apiStatus === 'mock' && 'bg-warning/20 text-warning',
           apiStatus === 'disconnected' && 'bg-danger/20 text-danger',
           apiStatus === 'unknown' && 'bg-muted text-muted-foreground',
         )}>
           {apiStatus === 'connected' ? <Wifi size={14} /> :
-           apiStatus === 'mock' ? <HelpCircle size={14} /> :
            apiStatus === 'disconnected' ? <WifiOff size={14} /> :
            <HelpCircle size={14} />}
           <span>
-            {apiStatus === 'connected' ? 'API 연결됨' :
-             apiStatus === 'mock' ? '데모 모드' :
-             apiStatus === 'disconnected' ? '끊김' : '대기중'}
+            {apiStatus === 'connected' ? 'Yahoo Finance 연결됨' :
+             apiStatus === 'disconnected' ? '연결 실패' : '대기중'}
           </span>
         </div>
 

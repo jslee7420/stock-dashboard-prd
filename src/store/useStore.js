@@ -1,27 +1,7 @@
 import { create } from 'zustand'
 import { getStockDaily, searchStock } from '../lib/api'
-import { mockGetStockDaily, mockSearchStock } from '../lib/mockData'
 import { calculateAllIndicators } from '../lib/indicators'
 import { evaluateAll } from '../lib/scoring'
-
-/** API 호출 시도, 실패하면 목업 데이터 폴백 */
-async function fetchDailyData(code, period) {
-  try {
-    const data = await getStockDaily(code, period)
-    if (data.success && data.ohlcv && data.ohlcv.length >= 30) {
-      return { data, mock: false }
-    }
-  } catch { /* API 실패 → 목업 폴백 */ }
-  return { data: mockGetStockDaily(code), mock: true }
-}
-
-async function fetchSearchResults(keyword) {
-  try {
-    const data = await searchStock(keyword)
-    if (data.results && data.results.length > 0) return data.results
-  } catch { /* 폴백 */ }
-  return mockSearchStock(keyword)
-}
 
 const useStore = create((set, get) => ({
   // 테마
@@ -34,7 +14,6 @@ const useStore = create((set, get) => ({
 
   // API 상태
   apiStatus: 'unknown',
-  useMock: false,
 
   // 종목 검색
   searchResults: [],
@@ -46,8 +25,8 @@ const useStore = create((set, get) => ({
     }
     set({ searchLoading: true })
     try {
-      const results = await fetchSearchResults(keyword)
-      set({ searchResults: results })
+      const data = await searchStock(keyword)
+      set({ searchResults: data.results || [] })
     } catch {
       set({ searchResults: [] })
     } finally {
@@ -66,9 +45,9 @@ const useStore = create((set, get) => ({
   analyzeStock: async (code, name, period = '3m') => {
     set({ analysisLoading: true, analysisError: null })
     try {
-      const { data, mock } = await fetchDailyData(code, period)
+      const data = await getStockDaily(code, period)
       if (!data.success || !data.ohlcv || data.ohlcv.length < 30) {
-        throw new Error('데이터가 부족합니다.')
+        throw new Error('데이터가 부족합니다. 종목코드를 확인해주세요.')
       }
       const ohlcv = data.ohlcv
       const stockName = name || data.name || code
@@ -79,8 +58,7 @@ const useStore = create((set, get) => ({
         ohlcv,
         indicators,
         evaluation,
-        apiStatus: mock ? 'mock' : 'connected',
-        useMock: mock,
+        apiStatus: 'connected',
       })
       get().addHistory({ code, name: stockName, score: evaluation.totalScore })
     } catch (error) {
@@ -104,7 +82,7 @@ const useStore = create((set, get) => ({
     const list = get().compareList
     if (list.length >= 10 || list.some(item => item.code === code)) return
     try {
-      const { data } = await fetchDailyData(code, '3m')
+      const data = await getStockDaily(code, '3m')
       if (!data.success || !data.ohlcv || data.ohlcv.length < 30) return
       const indicators = calculateAllIndicators(data.ohlcv)
       const evaluation = evaluateAll(data.ohlcv, indicators)
