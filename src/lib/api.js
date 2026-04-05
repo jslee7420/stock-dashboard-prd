@@ -17,8 +17,8 @@ export async function getStockPrice(code) {
   return data
 }
 
-/** 일별 시세(OHLCV) 조회 */
-export async function getStockDaily(code, period = '3m') {
+/** 시세(OHLCV) 조회 */
+export async function getStockDaily(code, period = 'daily') {
   const { data } = await api.get('/stock/daily', { params: { code, period } })
   return data
 }

@@ -2,19 +2,27 @@
 import YahooFinance from 'yahoo-finance2'
 const yahooFinance = new YahooFinance()
 
-function getPeriodDates(period) {
+function getPeriodConfig(period) {
   const end = new Date()
   const start = new Date()
 
   switch (period) {
-    case '1m': start.setMonth(start.getMonth() - 1); break
-    case '3m': start.setMonth(start.getMonth() - 3); break
-    case '6m': start.setMonth(start.getMonth() - 6); break
-    case '1y': start.setFullYear(start.getFullYear() - 1); break
-    default: start.setMonth(start.getMonth() - 3)
+    case 'daily':
+      start.setMonth(start.getMonth() - 3)
+      return { period1: start, period2: end, interval: '1d' }
+    case 'weekly':
+      start.setFullYear(start.getFullYear() - 2)
+      return { period1: start, period2: end, interval: '1wk' }
+    case 'monthly':
+      start.setFullYear(start.getFullYear() - 5)
+      return { period1: start, period2: end, interval: '1mo' }
+    case 'yearly':
+      start.setFullYear(start.getFullYear() - 20)
+      return { period1: start, period2: end, interval: '1mo' }
+    default:
+      start.setMonth(start.getMonth() - 3)
+      return { period1: start, period2: end, interval: '1d' }
   }
-
-  return { period1: start, period2: end }
 }
 
 function toYahooTicker(code) {
@@ -39,14 +47,13 @@ export default async function handler(req, res) {
   if (!code) return res.status(400).json({ error: 'code parameter required' })
 
   const ticker = toYahooTicker(code)
-  const { period1, period2 } = getPeriodDates(period)
+  const { period1, period2, interval } = getPeriodConfig(period)
 
   try {
-    // 일봉 데이터 조회
     const result = await yahooFinance.historical(ticker, {
       period1,
       period2,
-      interval: '1d',
+      interval,
     })
 
     if (!result || result.length === 0) {
@@ -56,7 +63,7 @@ export default async function handler(req, res) {
         const kqResult = await yahooFinance.historical(kqTicker, {
           period1,
           period2,
-          interval: '1d',
+          interval,
         })
         if (kqResult && kqResult.length > 0) {
           return res.status(200).json({

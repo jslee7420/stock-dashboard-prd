@@ -7,10 +7,10 @@ import IndicatorChart from './IndicatorChart'
 import { cn } from '../../lib/cn'
 
 const PERIODS = [
-  { value: '1m', label: '1개월' },
-  { value: '3m', label: '3개월' },
-  { value: '6m', label: '6개월' },
-  { value: '1y', label: '1년' },
+  { value: 'daily', label: '일' },
+  { value: 'weekly', label: '주' },
+  { value: 'monthly', label: '월' },
+  { value: 'yearly', label: '년' },
 ]
 
 export default function ChartSection() {

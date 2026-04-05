@@ -42,11 +42,12 @@ const useStore = create((set, get) => ({
   analysisLoading: false,
   analysisError: null,
 
-  analyzeStock: async (code, name, period = '3m') => {
+  analyzeStock: async (code, name, period = 'daily') => {
     set({ analysisLoading: true, analysisError: null })
     try {
       const data = await getStockDaily(code, period)
-      if (!data.success || !data.ohlcv || data.ohlcv.length < 30) {
+      const minDataPoints = period === 'monthly' || period === 'yearly' ? 10 : 30
+      if (!data.success || !data.ohlcv || data.ohlcv.length < minDataPoints) {
         throw new Error('데이터가 부족합니다. 종목코드를 확인해주세요.')
       }
       const ohlcv = data.ohlcv
@@ -69,7 +70,7 @@ const useStore = create((set, get) => ({
   },
 
   // 차트 기간
-  chartPeriod: '3m',
+  chartPeriod: 'daily',
   setChartPeriod: (period) => {
     set({ chartPeriod: period })
     const stock = get().currentStock
