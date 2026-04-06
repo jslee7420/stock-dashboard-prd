@@ -28,3 +28,9 @@ export async function searchStock(keyword) {
   const { data } = await api.get('/stock/search', { params: { keyword } })
   return data
 }
+
+/** 기관/외인 투자자 매매동향 조회 */
+export async function getStockInvestor(code) {
+  const { data } = await api.get('/stock/investor', { params: { code } })
+  return data
+}
