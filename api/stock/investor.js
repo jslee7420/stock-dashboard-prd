@@ -35,36 +35,41 @@ export default async function handler(req, res) {
 function parseInvestorData(html) {
   const results = []
 
-  // Naver Finance /item/frgn.naver 테이블 구조:
-  // 날짜 | 종가 | 전일비 | 등락률 | 거래량 | 기관순매매량 | 외국인순매매량 | 외국인보유주수 | 외국인보유율
-  // 날짜(YYYY.MM.DD) 패턴이 있는 행을 찾아 파싱
+  // Naver Finance /item/frgn.naver 실제 HTML 구조:
+  // 날짜 셀: <td class="tc"><span class="tah p10 gray03">2026.04.06</span></td>
+  // 나머지: <td class="num"><span class="tah p11 ...">값</span></td>
+  // 컬럼순: 날짜 | 종가 | 전일비 | 등락률 | 거래량 | 기관순매매 | 외국인순매매 | 보유주수 | 보유율
 
-  const rowRegex = /<tr[^>]*>[\s\S]*?<td[^>]*class="num"[^>]*>\s*(\d{4}\.\d{2}\.\d{2})\s*<\/td>([\s\S]*?)<\/tr>/g
+  const rowRegex = /<tr\s+onMouseOver[^>]*>([\s\S]*?)<\/tr>/g
 
   let match
   while ((match = rowRegex.exec(html)) !== null && results.length < 5) {
-    const date = match[1]
-    const restCells = match[2]
+    const rowHtml = match[1]
 
-    // 나머지 td 셀 값 추출
+    // 날짜 추출
+    const dateMatch = rowHtml.match(/(\d{4}\.\d{2}\.\d{2})/)
+    if (!dateMatch) continue
+
+    // 모든 td 셀 값 추출
     const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/g
     const values = []
     let cellMatch
-    while ((cellMatch = cellRegex.exec(restCells)) !== null) {
+    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
       const raw = cellMatch[1]
         .replace(/<[^>]+>/g, '')   // HTML 태그 제거
         .replace(/,/g, '')         // 콤마 제거
         .replace(/\s+/g, '')       // 공백 제거
         .replace(/%/g, '')         // 퍼센트 제거
+        .replace(/\+/g, '')        // + 기호 제거
       values.push(raw)
     }
 
-    // values[0]=종가, [1]=전일비, [2]=등락률, [3]=거래량, [4]=기관순매매, [5]=외국인순매매, [6]=외보유주수, [7]=외보유율
-    if (values.length >= 6) {
+    // values[0]=날짜, [1]=종가, [2]=전일비, [3]=등락률, [4]=거래량, [5]=기관순매매, [6]=외국인순매매, [7]=보유주수, [8]=보유율
+    if (values.length >= 7) {
       results.push({
-        date: date.replace(/\./g, ''),
-        institutional: parseInt(values[4]) || 0,
-        foreign: parseInt(values[5]) || 0,
+        date: dateMatch[1].replace(/\./g, ''),
+        institutional: parseInt(values[5]) || 0,
+        foreign: parseInt(values[6]) || 0,
       })
     }
   }
