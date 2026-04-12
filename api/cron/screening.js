@@ -139,9 +139,10 @@ async function processStock(stock) {
 }
 
 export default async function handler(req, res) {
-  // Vercel Cron 인증 확인
+  // Vercel Cron 인증 확인 (수동 트리거 허용)
   const authHeader = req.headers.authorization
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isManual = req.query.manual === 'true'
+  if (process.env.CRON_SECRET && !isManual && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Loader2, TrendingUp, Zap, RefreshCw } from 'lucide-react'
-import { getScreeningResults } from '../../lib/api'
+import { getScreeningResults, triggerScreening } from '../../lib/api'
 import useStore from '../../store/useStore'
 import { cn } from '../../lib/cn'
 
@@ -25,6 +25,18 @@ export default function Screener() {
     } catch {
       setError('스크리닝 데이터를 불러오지 못했습니다.')
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const runScreening = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await triggerScreening()
+      await fetchResults()
+    } catch {
+      setError('스크리닝 배치 실행에 실패했습니다.')
       setLoading(false)
     }
   }
@@ -86,7 +98,7 @@ export default function Screener() {
             )}
           </div>
           <button
-            onClick={fetchResults}
+            onClick={runScreening}
             disabled={loading}
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded bg-secondary disabled:opacity-50"
           >

@@ -40,3 +40,12 @@ export async function getScreeningResults() {
   const { data } = await api.get('/screening/results')
   return data
 }
+
+/** 스크리닝 배치 수동 실행 */
+export async function triggerScreening() {
+  const { data } = await api.get('/cron/screening', {
+    params: { manual: 'true' },
+    timeout: 300000,
+  })
+  return data
+}
