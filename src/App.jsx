@@ -4,7 +4,6 @@ import Header from './components/Header'
 import ConditionGuide from './components/ConditionGuide'
 import StockAnalysis from './components/StockAnalysis'
 import ChartSection from './components/ChartSection'
-import MultiCompare from './components/MultiCompare'
 import AnalysisHistory from './components/AnalysisHistory'
 import Screener from './components/Screener'
 
@@ -38,15 +37,10 @@ export default function App() {
           <ChartSection />
         </section>
 
-        {/* 멀티 종목 비교 + 히스토리 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <MultiCompare />
-          </div>
-          <div>
-            <AnalysisHistory />
-          </div>
-        </div>
+        {/* 분석 히스토리 */}
+        <section>
+          <AnalysisHistory />
+        </section>
       </main>
 
       {/* 면책 조항 */}
