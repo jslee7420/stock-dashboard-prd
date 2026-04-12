@@ -34,3 +34,9 @@ export async function getStockInvestor(code) {
   const { data } = await api.get('/stock/investor', { params: { code } })
   return data
 }
+
+/** 캐시된 스크리닝 결과 조회 */
+export async function getScreeningResults() {
+  const { data } = await api.get('/screening/results')
+  return data
+}

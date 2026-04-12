@@ -1,17 +1,37 @@
-import { useState, useCallback, useMemo } from 'react'
-import { Search, Loader2, Filter, RotateCcw, TrendingUp, Zap } from 'lucide-react'
-import { KOSPI200_UNIQUE } from '../../lib/kospi200'
-import { getStockDaily, getStockInvestor } from '../../lib/api'
-import { calculateAllIndicators } from '../../lib/indicators'
-import { evaluateAll } from '../../lib/scoring'
+import { useState, useEffect, useMemo } from 'react'
+import { Search, Loader2, TrendingUp, Zap, RefreshCw } from 'lucide-react'
+import { getScreeningResults } from '../../lib/api'
 import useStore from '../../store/useStore'
 import { cn } from '../../lib/cn'
 
 export default function Screener() {
   const [results, setResults] = useState([])
-  const [scanning, setScanning] = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0 })
+  const [loading, setLoading] = useState(true)
+  const [updatedAt, setUpdatedAt] = useState(null)
+  const [error, setError] = useState(null)
   const { analyzeStock } = useStore()
+
+  const fetchResults = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getScreeningResults()
+      if (data.success && data.results) {
+        setResults(data.results)
+        setUpdatedAt(data.updatedAt)
+      } else {
+        setError('스크리닝 데이터가 아직 없습니다. 배치 작업 실행 후 확인해주세요.')
+      }
+    } catch {
+      setError('스크리닝 데이터를 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchResults()
+  }, [])
 
   // 기술적 분석 TOP 10
   const top10 = useMemo(() => {
@@ -40,68 +60,14 @@ export default function Screener() {
       })
   }, [results])
 
-  const runScreening = useCallback(async () => {
-    setScanning(true)
-    setResults([])
-    const total = KOSPI200_UNIQUE.length
-    setProgress({ current: 0, total })
-
-    const screenResults = []
-
-    for (let i = 0; i < total; i++) {
-      const stock = KOSPI200_UNIQUE[i]
-      setProgress({ current: i + 1, total })
-
-      try {
-        // OHLCV + 투자자 데이터 병렬 조회
-        const [ohlcvData, investorResp] = await Promise.all([
-          getStockDaily(stock.code, '3m'),
-          getStockInvestor(stock.code).catch(() => ({ success: false, data: [] })),
-        ])
-
-        if (!ohlcvData.success || !ohlcvData.ohlcv || ohlcvData.ohlcv.length < 30) continue
-
-        const indicators = calculateAllIndicators(ohlcvData.ohlcv)
-        const evaluation = evaluateAll(ohlcvData.ohlcv, indicators)
-
-        // 투자자 3일 연속 순매수 체크
-        let investor = null
-        if (investorResp.success && investorResp.data?.length >= 3) {
-          const last3 = investorResp.data.slice(0, 3)
-          const instConsec = last3.every(d => d.institutional > 0)
-          const foreignConsec = last3.every(d => d.foreign > 0)
-          investor = {
-            institutionalConsecutive: instConsec,
-            foreignConsecutive: foreignConsec,
-            totalInstitutional: last3.reduce((s, d) => s + d.institutional, 0),
-            totalForeign: last3.reduce((s, d) => s + d.foreign, 0),
-            days: last3,
-          }
-        }
-
-        screenResults.push({
-          code: stock.code,
-          name: stock.name,
-          score: evaluation.totalScore,
-          conditions: evaluation.conditions,
-          close: ohlcvData.ohlcv[ohlcvData.ohlcv.length - 1].close,
-          investor,
-        })
-      } catch {
-        // skip
-      }
-
-      // 배치 업데이트 (10개마다)
-      if ((i + 1) % 10 === 0 || i === total - 1) {
-        setResults([...screenResults])
-      }
-    }
-
-    setResults([...screenResults])
-    setScanning(false)
-  }, [])
-
   const metCount = (conds) => Object.values(conds).filter(c => c.met).length
+
+  const formatUpdatedAt = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
 
   return (
     <div className="space-y-4">
@@ -113,41 +79,39 @@ export default function Screener() {
             <h3 className="text-sm font-semibold text-card-foreground">
               코스피200 기술적 분석
             </h3>
-            <span className="text-xs text-muted-foreground">
-              ({KOSPI200_UNIQUE.length}종목)
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {results.length > 0 && (
-              <button
-                onClick={() => { setResults([]); setProgress({ current: 0, total: 0 }) }}
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded bg-secondary"
-              >
-                <RotateCcw size={12} /> 초기화
-              </button>
+            {updatedAt && (
+              <span className="text-[10px] text-muted-foreground">
+                (업데이트: {formatUpdatedAt(updatedAt)})
+              </span>
             )}
-            <button
-              onClick={runScreening}
-              disabled={scanning}
-              className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {scanning ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  스캔 중 ({progress.current}/{progress.total})
-                </>
-              ) : (
-                <>
-                  <Filter size={14} />
-                  전체 스크리닝 시작
-                </>
-              )}
-            </button>
           </div>
+          <button
+            onClick={fetchResults}
+            disabled={loading}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded bg-secondary disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            새로고침
+          </button>
         </div>
 
+        {/* 로딩 */}
+        {loading && (
+          <div className="px-4 py-8 flex flex-col items-center gap-2">
+            <Loader2 size={24} className="animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">스크리닝 데이터 로딩 중...</span>
+          </div>
+        )}
+
+        {/* 에러 */}
+        {!loading && error && (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            {error}
+          </div>
+        )}
+
         {/* TOP 10 테이블 */}
-        {top10.length > 0 && (
+        {!loading && top10.length > 0 && (
           <>
             <div className="px-4 py-2 border-b border-border bg-secondary/30">
               <h4 className="text-xs font-semibold text-card-foreground">
@@ -222,49 +186,10 @@ export default function Screener() {
             </div>
           </>
         )}
-
-        {/* 빈 상태 */}
-        {!scanning && results.length === 0 && (
-          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-            "전체 스크리닝 시작" 버튼을 눌러 코스피200 종목을 분석하세요
-          </div>
-        )}
-
-        {/* 스캔 진행 중 (결과 없을 때) */}
-        {scanning && results.length === 0 && (
-          <div className="px-4 py-8 flex flex-col items-center gap-2">
-            <Loader2 size={24} className="animate-spin text-primary" />
-            <span className="text-xs text-muted-foreground">
-              종목 분석 중... ({progress.current}/{progress.total})
-            </span>
-            <div className="w-48 h-1.5 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 스캔 진행 중 표시 (결과 있을 때) */}
-      {scanning && results.length > 0 && (
-        <div className="flex items-center justify-center gap-2 py-1">
-          <Loader2 size={14} className="animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">
-            스캔 진행 중... ({progress.current}/{progress.total})
-          </span>
-          <div className="w-32 h-1 bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all"
-              style={{ width: `${(progress.current / progress.total) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* 기관/외인 3일 연속 순매수 */}
-      {results.length > 0 && (
+      {!loading && results.length > 0 && (
         <div className="border border-border rounded-lg bg-card">
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -340,14 +265,14 @@ export default function Screener() {
             </div>
           ) : (
             <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-              {scanning ? '분석 중...' : '해당 조건을 만족하는 종목이 없습니다'}
+              해당 조건을 만족하는 종목이 없습니다
             </div>
           )}
         </div>
       )}
 
       {/* 기관+외인 쌍끌이 3일 연속 순매수 */}
-      {results.length > 0 && (
+      {!loading && results.length > 0 && (
         <div className="border border-border rounded-lg bg-card">
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -404,7 +329,7 @@ export default function Screener() {
             </div>
           ) : (
             <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-              {scanning ? '분석 중...' : '해당 조건을 만족하는 종목이 없습니다'}
+              해당 조건을 만족하는 종목이 없습니다
             </div>
           )}
         </div>
