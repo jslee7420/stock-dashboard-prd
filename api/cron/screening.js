@@ -168,6 +168,7 @@ export default async function handler(req, res) {
     await put('screening-results.json', JSON.stringify(payload), {
       access: 'public',
       addRandomSuffix: false,
+      allowOverwrite: true,
       contentType: 'application/json',
     })
 
