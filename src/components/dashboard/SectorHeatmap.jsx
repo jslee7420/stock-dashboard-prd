@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { KRW, pct } from './utils'
 
 function squarify(items, x, y, w, h) {
@@ -62,7 +62,9 @@ const colorFor = (p) => {
 export default function SectorHeatmap({ data = [] }) {
   const [size, setSize] = useState({ w: 800, h: 360 })
   const [tip, setTip] = useState(null) // { item, x, y } in container-local coords
+  const [tipSize, setTipSize] = useState({ w: 0, h: 0 })
   const ref = useRef()
+  const tipRef = useRef(null)
   useEffect(() => {
     if (!ref.current) return
     const ro = new ResizeObserver((entries) => {
@@ -87,19 +89,29 @@ export default function SectorHeatmap({ data = [] }) {
     setTip({ item: it, x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
-  // Position tip with edge-aware flip; offset from cursor so it never sits under the pointer
+  // Measure actual tooltip size after render so the right/bottom flip uses the real width,
+  // not a guess. Without this, the flip overshoots and the tip appears far from the cursor.
+  useLayoutEffect(() => {
+    if (!tip || !tipRef.current) return
+    const r = tipRef.current.getBoundingClientRect()
+    if (r.width !== tipSize.w || r.height !== tipSize.h) {
+      setTipSize({ w: r.width, h: r.height })
+    }
+  })
+
+  // Anchor the corner closest to the cursor and let CSS translate handle the rest.
+  // Right-edge cells: tip's right edge sits PAD px left of cursor (no measurement-dependent gap).
   const tipStyle = (() => {
     if (!tip) return null
-    const TW = 180 // approximate tooltip width
-    const TH = 64
-    const PAD = 14
-    let left = tip.x + PAD
-    let top = tip.y + PAD
-    if (left + TW > size.w) left = tip.x - TW - PAD
-    if (top + TH > 360) top = tip.y - TH - PAD
-    if (left < 0) left = 4
-    if (top < 0) top = 4
-    return { left, top }
+    const PAD = 12
+    const flipX = tipSize.w > 0 && tip.x + tipSize.w + PAD > size.w
+    const flipY = tipSize.h > 0 && tip.y + tipSize.h + PAD > 360
+    return {
+      left: flipX ? tip.x - PAD : tip.x + PAD,
+      top: flipY ? tip.y - PAD : tip.y + PAD,
+      transform: `translate(${flipX ? '-100%' : '0'}, ${flipY ? '-100%' : '0'})`,
+      visibility: tipSize.w === 0 ? 'hidden' : 'visible',
+    }
   })()
 
   return (
@@ -174,7 +186,7 @@ export default function SectorHeatmap({ data = [] }) {
         )
       })}
       {tip && (
-        <div className="treemap-tip" role="tooltip" style={tipStyle}>
+        <div ref={tipRef} className="treemap-tip" role="tooltip" style={tipStyle}>
           <span className="t-name">{tip.item.name}</span>
           <span className={'t-pct num ' + (tip.item.pct >= 0 ? 'up' : 'down')}>{pct(tip.item.pct)}</span>
           <span className="t-cap num">{KRW(tip.item.cap)}</span>
