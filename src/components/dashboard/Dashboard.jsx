@@ -92,14 +92,11 @@ export default function Dashboard() {
 
   const lastUpdatedDisplay = formatStamp(updatedAt)
   const refreshing = status === 'loading' || status === 'triggering'
-  // 새로고침 동작:
-  //  - 데이터 없음 (empty) → 크론 수동 트리거 (~40초)
-  //  - 데이터 있음 (ready) → 캐시 재조회 (즉시)
+  // 새로고침 = 항상 크론 트리거(~40초). 5분 쿨다운이면 trigger() 내부에서 캐시 재조회로 폴백.
   const handleRefresh = useCallback(() => {
     if (refreshing) return
-    if (status === 'empty' || status === 'error') trigger()
-    else refresh()
-  }, [refreshing, status, refresh, trigger])
+    trigger()
+  }, [refreshing, trigger])
 
   return (
     <div className={'app' + (selected ? ' has-detail' : '')}>

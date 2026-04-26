@@ -525,8 +525,48 @@ html, body {
 }
 
 /* ============== Sector treemap ============== */
-.treemap-cell:hover { filter: brightness(1.15); }
-.treemap-cell { color: #fff; }
+.treemap { overflow: visible; }
+.treemap-cell { color: #fff; overflow: visible; }
+.treemap-cell:hover { filter: brightness(1.15); z-index: 4; }
+
+.treemap-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%) translateY(2px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: max-content;
+  padding: 8px 12px;
+  background: rgba(32, 34, 38, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  color: #e8eaed;
+  font-size: 12px;
+  letter-spacing: 0.16px;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 70ms ease-out, transform 70ms ease-out;
+  z-index: 5;
+  white-space: nowrap;
+}
+.treemap-cell.tip-below .treemap-tip {
+  bottom: auto;
+  top: calc(100% + 6px);
+  transform: translateX(-50%) translateY(-2px);
+}
+.treemap-cell:hover .treemap-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.treemap-tip .t-name { font-weight: 600; color: #fff; font-size: 13px; }
+.treemap-tip .t-pct { font-weight: 600; font-size: 13px; }
+.treemap-tip .t-pct.up { color: var(--up); }
+.treemap-tip .t-pct.down { color: var(--down); }
+.treemap-tip .t-cap { color: rgba(232, 234, 237, 0.65); font-size: 11px; }
 
 /* ============== Detail panel (right) ============== */
 .detail {
