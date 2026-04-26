@@ -32,25 +32,36 @@ async function fetchOHLCV(code, market) {
   }
 }
 
-async function fetchQuote(code, market) {
-  const ticker = toYahooTicker(code, market)
-  try {
-    const q = await yahooFinance.quote(ticker)
-    return { marketCap: q?.marketCap || null }
-  } catch {
-    return { marketCap: null }
+// Bulk quote: Yahoo allows arrays of symbols in a single roundtrip. We chunk to stay
+// well under URL length limits. ~75 tickers per request × 3 requests = 230 stocks.
+async function fetchQuotesBulk(tickers, chunkSize = 75) {
+  const capByTicker = new Map()
+  for (let i = 0; i < tickers.length; i += chunkSize) {
+    const chunk = tickers.slice(i, i + chunkSize)
+    try {
+      const result = await yahooFinance.quote(chunk)
+      const list = Array.isArray(result) ? result : [result]
+      for (const q of list) {
+        if (q?.symbol) capByTicker.set(q.symbol, q.marketCap ?? null)
+      }
+    } catch {
+      // 한 청크 실패해도 다른 청크는 계속 — 해당 종목들은 marketCap=null로 진행
+    }
+  }
+  return capByTicker
+}
+
+// Run an async fn over `items` with at most `concurrency` parallel — fail-isolated via allSettled.
+async function runBatched(items, concurrency, fn) {
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency)
+    await Promise.allSettled(batch.map(fn))
   }
 }
 
-async function processStock(stock, market) {
+function buildResult(stock, market, ohlcv, marketCap, investor) {
+  if (!ohlcv || ohlcv.length < 2 || !investor || investor.length < 3) return null
   try {
-    const [ohlcv, quote, investor] = await Promise.all([
-      fetchOHLCV(stock.code, market),
-      fetchQuote(stock.code, market),
-      fetchNaverInvestor(stock.code),
-    ])
-    if (!ohlcv || ohlcv.length < 2 || !investor || investor.length < 3) return null
-
     const last = ohlcv[ohlcv.length - 1]
     const prev = ohlcv[ohlcv.length - 2]
     const price = last.close
@@ -91,7 +102,7 @@ async function processStock(stock, market) {
       price,
       change,
       changePct,
-      marketCap: quote.marketCap ?? null,
+      marketCap: marketCap ?? null,
       foreign: { consec: foreignConsec, amt: foreignAmt, qty: foreignQty, streak: streak('foreign') },
       inst: { consec: instConsec, amt: instAmt, qty: instQty, streak: streak('inst') },
       days: last3,
@@ -216,23 +227,47 @@ export default async function handler(req, res) {
 
   const startedAt = new Date().toISOString()
   try {
-    const all = []
-    const failures = []
     const universe = [
       ...KOSPI200_UNIQUE.map((s) => ({ stock: s, market: 'KOSPI' })),
       ...KOSDAQ150.map((s) => ({ stock: s, market: 'KOSDAQ' })),
     ]
-    const batchSize = 10
-    for (let i = 0; i < universe.length; i += batchSize) {
-      const batch = universe.slice(i, i + batchSize)
-      const settled = await Promise.allSettled(batch.map(({ stock, market }) => processStock(stock, market)))
-      settled.forEach((res, idx) => {
-        if (res.status === 'fulfilled' && res.value) all.push(res.value)
-        else if (res.status === 'rejected') failures.push({ code: batch[idx].stock.code, error: String(res.reason).slice(0, 200) })
-      })
+
+    const ohlcvByCode = new Map()
+    const investorByCode = new Map()
+    const tickers = universe.map(({ stock, market }) => toYahooTicker(stock.code, market))
+
+    // 3개 파이프라인을 동시에 실행:
+    //  1) Yahoo bulk quote (3 calls × 75 tickers, ~2초)
+    //  2) Yahoo per-stock OHLCV (concurrency 20, ~18초)
+    //  3) Naver per-stock 수급 스크래핑 (concurrency 8, ~40초)
+    //  + market summary
+    // wall time = max(2, 18, 40, 1) ≈ 40초 (이전 90초 대비 ~2x)
+    const [capByTicker, , , marketSummary] = await Promise.all([
+      fetchQuotesBulk(tickers, 75),
+      runBatched(universe, 20, async ({ stock, market }) => {
+        const data = await fetchOHLCV(stock.code, market)
+        if (data) ohlcvByCode.set(stock.code, data)
+      }),
+      runBatched(universe, 8, async ({ stock }) => {
+        const data = await fetchNaverInvestor(stock.code)
+        if (data) investorByCode.set(stock.code, data)
+      }),
+      fetchMarketSummary(),
+    ])
+
+    // Pure compute pass (no I/O) — 4개 페이지의 결과를 종목별로 합쳐 결과 객체 생성
+    const all = []
+    const failures = []
+    for (const { stock, market } of universe) {
+      const ticker = toYahooTicker(stock.code, market)
+      const ohlcv = ohlcvByCode.get(stock.code)
+      const investor = investorByCode.get(stock.code)
+      const cap = capByTicker.get(ticker) ?? null
+      const r = buildResult(stock, market, ohlcv, cap, investor)
+      if (r) all.push(r)
+      else failures.push({ code: stock.code, missing: { ohlcv: !ohlcv, investor: !investor } })
     }
 
-    const marketSummary = await fetchMarketSummary()
     const signals = buildSignals(all)
     const sectorPerf = buildSectorPerf(all)
 
