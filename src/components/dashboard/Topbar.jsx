@@ -50,7 +50,7 @@ export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, re
           </svg>
         </span>
         <span className="refresh-meta">
-          <span className="refresh-label">{refreshing ? '업데이트 중' : '업데이트'}</span>
+          <span className="refresh-label">{refreshing ? '생성 중…' : '업데이트'}</span>
           <span className="refresh-time">{lastUpdated}</span>
         </span>
       </button>

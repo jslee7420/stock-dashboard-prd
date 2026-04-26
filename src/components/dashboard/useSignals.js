@@ -46,5 +46,27 @@ export function useSignals() {
 
   useEffect(() => { fetchOnce() }, [fetchOnce])
 
-  return { ...data, status, error, refresh: fetchOnce }
+  // 크론을 수동 트리거 (40초 정도 소요). 5분 쿨다운 걸리면 429.
+  const trigger = useCallback(async () => {
+    setStatus('triggering')
+    setError(null)
+    try {
+      const res = await fetch('/api/signals/trigger', { method: 'POST', cache: 'no-store' })
+      const json = await res.json()
+      if (res.status === 429 && json.code === 'COOLDOWN') {
+        setError(json.error)
+        // 쿨다운 상태에서는 그냥 캐시 재조회
+        await fetchOnce()
+        return
+      }
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`)
+      // 성공 → 새로 만들어진 캐시 가져오기
+      await fetchOnce()
+    } catch (e) {
+      setError(e.message)
+      setStatus('error')
+    }
+  }, [fetchOnce])
+
+  return { ...data, status, error, refresh: fetchOnce, trigger }
 }

@@ -23,7 +23,7 @@ const sortKeyForBasis = (basis) => (basis === 'qty' ? 'netBuyQty3d' : 'netBuy3d'
 const isBasisSortKey = (key) => key === 'netBuy3d' || key === 'netBuyQty3d'
 
 export default function Dashboard() {
-  const { signals, marketSummary, sectorPerf, updatedAt, status, error, refresh } = useSignals()
+  const { signals, marketSummary, sectorPerf, updatedAt, status, error, refresh, trigger } = useSignals()
 
   const [theme, setTheme] = useState('dark')
   const [basis, setBasis] = useState('amt')
@@ -78,11 +78,15 @@ export default function Dashboard() {
   }, [selectedCode])
 
   const lastUpdatedDisplay = formatStamp(updatedAt)
-  const refreshing = status === 'loading'
+  const refreshing = status === 'loading' || status === 'triggering'
+  // 새로고침 동작:
+  //  - 데이터 없음 (empty) → 크론 수동 트리거 (~40초)
+  //  - 데이터 있음 (ready) → 캐시 재조회 (즉시)
   const handleRefresh = useCallback(() => {
     if (refreshing) return
-    refresh()
-  }, [refreshing, refresh])
+    if (status === 'empty' || status === 'error') trigger()
+    else refresh()
+  }, [refreshing, status, refresh, trigger])
 
   return (
     <div className={'app' + (selected ? ' has-detail' : '')}>
@@ -98,8 +102,9 @@ export default function Dashboard() {
         <div className="section-head" style={{ marginTop: 0, justifyContent: 'space-between' }}>
           <div className="meta" aria-live="polite">
             {status === 'loading' && '데이터 불러오는 중…'}
-            {status === 'error' && `데이터 로드 실패: ${error}`}
-            {status === 'empty' && '아직 데이터가 없습니다 (크론 미실행)'}
+            {status === 'triggering' && '데이터 생성 중… (약 40초 소요)'}
+            {status === 'error' && `오류: ${error}`}
+            {status === 'empty' && '데이터 없음 — 새로고침 버튼을 눌러 생성'}
             {status === 'ready' && `최근 업데이트 ${lastUpdatedDisplay} KST`}
             {status === 'idle' && '대기 중'}
           </div>
