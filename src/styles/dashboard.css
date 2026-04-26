@@ -211,6 +211,7 @@ html, body {
   color: var(--fg);
   font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
   display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
 .search-item .search-name {
   font-weight: 500;
@@ -523,6 +524,23 @@ html, body {
   font-weight: 600; font-size: 12px;
   flex: none;
   letter-spacing: -0.2px;
+  overflow: hidden;
+}
+
+/* When the logo image loads, it fills the icon container; transparent logos sit on the
+   container's background. Removes the text styling overhead since the img is the content. */
+.ticker-icon.has-logo,
+.ticker-icon-sm.has-logo,
+.detail-head .ticker-icon.has-logo {
+  background: #fff;
+}
+.ticker-icon.has-logo img,
+.ticker-icon-sm.has-logo img,
+.detail-head .ticker-icon.has-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .signal-table .name-stack { min-width: 0; }
 .signal-table .name {
@@ -681,6 +699,7 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--rui-font-display);
   font-weight: 600; font-size: 16px; flex: none;
+  overflow: hidden;
 }
 .detail-head .stock-name {
   font-family: var(--rui-font-display);

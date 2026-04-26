@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import Icon from './Icon'
+import StockLogo from './StockLogo'
 import { KRW, signed, pct } from './utils'
 
 const onKeyActivate = (handler) => (e) => {
@@ -77,7 +78,7 @@ export default function SignalTable({ data, selectedCode, onSelect, sort, setSor
           >
             <div className="rank">{i + 1}</div>
             <div className="name-cell">
-              <div className="ticker-icon" aria-hidden="true">{s.iconText}</div>
+              <StockLogo code={s.code} fallback={s.iconText} />
               <div className="name-stack">
                 <div className="name">
                   {s.name}

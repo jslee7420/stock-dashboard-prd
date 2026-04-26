@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import CandleChart from './CandleChart'
+import StockLogo from './StockLogo'
 import { KRW, signed, pct } from './utils'
 
 const PERIOD_FOR_RANGE = {
@@ -145,7 +146,7 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose, wid
         </svg>
       </button>
       <div className="detail-head">
-        <div className="ticker-icon" aria-hidden="true">{stock.iconText}</div>
+        <StockLogo code={stock.code} fallback={stock.iconText} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="stock-name" id="detail-title">
             {stock.name}

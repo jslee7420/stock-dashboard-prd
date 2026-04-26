@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
+import StockLogo from './StockLogo'
 
 function Pill({ label, value, pct, asPrice }) {
   if (value == null) {
@@ -114,7 +115,7 @@ function StockSearch({ candidates, onSelectStock }) {
               onMouseEnter={() => setActiveIdx(i)}
               onClick={() => pick(s)}
             >
-              <span className="ticker-icon-sm" aria-hidden="true">{s.iconText}</span>
+              <StockLogo code={s.code} fallback={s.iconText} className="ticker-icon-sm" />
               <span className="search-name">{s.name}</span>
               <span className="search-code num">{s.code}</span>
               <span className="search-sector">{s.sector}</span>
