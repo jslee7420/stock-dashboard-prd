@@ -69,7 +69,7 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose, wid
           let rows = j.ohlcv
           if (range === '3m') rows = rows.slice(-66)
           else if (range === '1y') rows = rows.slice(-12)
-          setCandles(rows.map((d) => ({ open: d.open, high: d.high, low: d.low, close: d.close })))
+          setCandles(rows.map((d) => ({ date: d.date, open: d.open, high: d.high, low: d.low, close: d.close })))
         } else {
           setCandles([])
         }
@@ -191,7 +191,7 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose, wid
         ) : candles.length === 0 ? (
           <div style={{ padding: 30, textAlign: 'center', color: 'var(--fg-muted)' }}>차트 데이터 없음</div>
         ) : (
-          <CandleChart candles={candles} theme={chartStyle} width={376} height={220} />
+          <CandleChart candles={candles} theme={chartStyle} height={220} />
         )}
       </div>
 
