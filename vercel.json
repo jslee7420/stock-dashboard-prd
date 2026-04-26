@@ -6,6 +6,7 @@
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
   "crons": [
-    { "path": "/api/cron/screening", "schedule": "0 9 * * 1-5" }
+    { "path": "/api/cron/screening", "schedule": "0 9 * * 1-5" },
+    { "path": "/api/cron/signals", "schedule": "0 8 * * 1-5" }
   ]
 }

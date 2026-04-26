@@ -1,0 +1,35 @@
+/* ============================================================
+   Revolut Design System — Colors & Type (subset for dashboard)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --rui-color-foreground:        #191c1f;
+  --rui-color-foreground-muted:  #505a63;
+  --rui-color-foreground-subtle: #8d969e;
+  --rui-color-background:        #ffffff;
+  --rui-color-surface:           #f4f4f4;
+  --rui-color-surface-dark:      #191c1f;
+  --rui-color-border:            #c9c9cd;
+  --rui-color-border-strong:     #191c1f;
+
+  --rui-color-blue:        #494fdf;
+  --rui-color-danger:      #e23b4a;
+  --rui-color-deep-pink:   #e61e49;
+  --rui-color-warning:     #ec7e00;
+  --rui-color-teal:        #00a87e;
+
+  --rui-font-display: 'Space Grotesk', 'Aeonik Pro', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif;
+  --rui-font-body:    'Inter', 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --rui-font-mono:    ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --rui-radius-sm:   12px;
+  --rui-radius-md:   16px;
+  --rui-radius-lg:   20px;
+  --rui-radius-pill: 9999px;
+
+  --rui-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --rui-duration-fast: 120ms;
+  --rui-duration:      200ms;
+}

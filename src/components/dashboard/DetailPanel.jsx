@@ -1,0 +1,158 @@
+import { useEffect, useRef, useState } from 'react'
+import CandleChart from './CandleChart'
+import { KRW, signed, pct } from './utils'
+
+const PERIOD_FOR_RANGE = {
+  day: 'daily',
+  week: 'weekly',
+  month: 'monthly',
+  '3m': 'daily',
+  '1y': 'monthly',
+}
+
+const formatNaverDate = (yyyymmdd) => {
+  if (!yyyymmdd || yyyymmdd.length < 8) return yyyymmdd
+  return `${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(6, 8)}`
+}
+
+export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
+  const [range, setRange] = useState('day')
+  const [candles, setCandles] = useState([])
+  const [chartLoading, setChartLoading] = useState(false)
+  const [flow, setFlow] = useState([])
+  const [flowLoading, setFlowLoading] = useState(false)
+  const dir = stock.changePct >= 0 ? 'up' : 'down'
+  const closeRef = useRef(null)
+  useEffect(() => { closeRef.current?.focus() }, [stock.code])
+
+  // Fetch OHLCV when stock or range changes (data-fetching effect — setState-in-effect is the standard pattern)
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setChartLoading(true)
+    fetch(`/api/stock/daily?code=${stock.code}&period=${PERIOD_FOR_RANGE[range]}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        if (j.success && Array.isArray(j.ohlcv)) {
+          let rows = j.ohlcv
+          if (range === '3m') rows = rows.slice(-66)
+          else if (range === '1y') rows = rows.slice(-12)
+          setCandles(rows.map((d) => ({ open: d.open, high: d.high, low: d.low, close: d.close })))
+        } else {
+          setCandles([])
+        }
+      })
+      .catch(() => { if (!cancelled) setCandles([]) })
+      .finally(() => { if (!cancelled) setChartLoading(false) })
+    return () => { cancelled = true }
+  }, [stock.code, range])
+
+  // Fetch 5-day investor flow
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFlowLoading(true)
+    fetch(`/api/stock/investor?code=${stock.code}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        if (j.success && Array.isArray(j.data)) {
+          setFlow(j.data.map((d) => ({
+            date: formatNaverDate(d.date),
+            foreign: d.foreign * stock.price,
+            inst: d.institutional * stock.price,
+            indiv: -(d.foreign + d.institutional) * stock.price, // crude proxy: 실제 개인 = -(외인+기관+기타)
+          })))
+        } else {
+          setFlow([])
+        }
+      })
+      .catch(() => { if (!cancelled) setFlow([]) })
+      .finally(() => { if (!cancelled) setFlowLoading(false) })
+  }, [stock.code, stock.price])
+
+  return (
+    <div
+      className="detail"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-title"
+    >
+      <button ref={closeRef} className="detail-close" onClick={onClose} aria-label="상세 패널 닫기">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+      <div className="detail-head">
+        <div className="ticker-icon" aria-hidden="true">{stock.iconText}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="stock-name" id="detail-title">
+            {stock.name}
+            {stock.dual && <span className="dual-ribbon">동시</span>}
+          </div>
+          <div className="stock-meta">{stock.code} · {stock.market} · {stock.sector}</div>
+        </div>
+      </div>
+
+      <div className="price-block">
+        <div className={'price-now num ' + dir}>{stock.price.toLocaleString('ko-KR')}</div>
+        <div className={'price-delta ' + dir}>
+          {stock.change >= 0 ? '▲' : '▼'} {Math.abs(stock.change).toLocaleString('ko-KR', { maximumFractionDigits: 0 })} ({pct(stock.changePct)})
+        </div>
+      </div>
+
+      <div className="range-tabs" role="tablist" aria-label="차트 기간">
+        {[['day', '일'], ['week', '주'], ['month', '월'], ['3m', '3M'], ['1y', '1Y']].map(([k, l]) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={range === k}
+            className={range === k ? 'active' : ''}
+            onClick={() => setRange(k)}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <div className="chart-wrap">
+        {chartLoading ? (
+          <div style={{ padding: 30, textAlign: 'center', color: 'var(--fg-muted)' }}>차트 로드 중…</div>
+        ) : candles.length === 0 ? (
+          <div style={{ padding: 30, textAlign: 'center', color: 'var(--fg-muted)' }}>차트 데이터 없음</div>
+        ) : (
+          <CandleChart candles={candles} theme={chartStyle} width={376} height={220} />
+        )}
+      </div>
+
+      <div className="metric-grid">
+        <div className="metric"><div className="k">시가총액</div><div className="v num">{stock.marketCap == null ? '—' : KRW(stock.marketCap)}</div></div>
+        <div className="metric"><div className="k">3일 누적 순매수</div><div className="v num up">{signed(stock.netBuy3d, KRW)}</div></div>
+        <div className="metric"><div className="k">시총 대비</div><div className="v num">{stock.netBuyRatio == null ? '—' : (<>{stock.netBuyRatio.toFixed(2)}<span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 4 }}>%</span></>)}</div></div>
+        <div className="metric"><div className="k">연속일</div><div className="v num">{stock.consecDays}<span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 4 }}>일</span></div></div>
+      </div>
+
+      <div className="invest-flow">
+        <h4>최근 5일 수급 (개인은 외인+기관 합산 추정)</h4>
+        <div className="flow-row head">
+          <div>일자</div><div>외국인</div><div>기관</div><div>개인</div>
+        </div>
+        {flowLoading ? (
+          <div style={{ padding: 12, textAlign: 'center', color: 'var(--fg-muted)' }}>수급 데이터 로드 중…</div>
+        ) : flow.length === 0 ? (
+          <div style={{ padding: 12, textAlign: 'center', color: 'var(--fg-muted)' }}>수급 데이터 없음</div>
+        ) : (
+          flow.map((f, i) => (
+            <div key={i} className="flow-row">
+              <div className="date">{f.date}</div>
+              <div className={'v ' + (f.foreign >= 0 ? 'up' : 'down')}>{signed(f.foreign, KRW)}</div>
+              <div className={'v ' + (f.inst >= 0 ? 'up' : 'down')}>{signed(f.inst, KRW)}</div>
+              <div className={'v ' + (f.indiv >= 0 ? 'up' : 'down')}>{signed(f.indiv, KRW)}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}

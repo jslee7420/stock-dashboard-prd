@@ -45,6 +45,11 @@ export default async function handler(req, res) {
 
   const { code, period = '3m' } = req.query
   if (!code) return res.status(400).json({ error: 'code parameter required' })
+  // Strict allowlist: 6-digit Korean ticker or short Yahoo symbol (letters/digits/dot/hyphen, ≤12 chars).
+  // Prevents URL injection / SSRF via crafted code values.
+  if (!/^[A-Za-z0-9.-]{1,12}$/.test(code)) {
+    return res.status(400).json({ error: 'invalid code format' })
+  }
 
   const ticker = toYahooTicker(code)
   const { period1, period2, interval } = getPeriodConfig(period)
