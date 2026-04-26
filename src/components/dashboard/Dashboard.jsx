@@ -99,7 +99,19 @@ export default function Dashboard() {
         onSelectStock={setSelectedCode}
       />
       <div className="main">
-        <div className="section-head" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+        <FilterBar
+          basis={basis}
+          setBasis={setBasis}
+          market={market}
+          setMarket={setMarket}
+          investor={investor}
+          setInvestor={setInvestor}
+          topN={topN}
+          setTopN={setTopN}
+          count={data.length}
+        />
+
+        <div className="section-head" style={{ justifyContent: 'space-between' }}>
           <div className="meta" aria-live="polite">
             {status === 'loading' && '데이터 불러오는 중…'}
             {status === 'triggering' && '데이터 생성 중… (약 40초 소요)'}
@@ -114,17 +126,6 @@ export default function Dashboard() {
         </div>
 
         <HeroSummary activeCategory={category} signalData={data} />
-        <FilterBar
-          basis={basis}
-          setBasis={setBasis}
-          market={market}
-          setMarket={setMarket}
-          investor={investor}
-          setInvestor={setInvestor}
-          topN={topN}
-          setTopN={setTopN}
-          count={data.length}
-        />
         {data.length === 0 && status === 'ready' ? (
           <div className="empty">선택한 카테고리에 해당하는 종목이 없습니다.</div>
         ) : (
