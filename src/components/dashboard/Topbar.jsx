@@ -27,7 +27,7 @@ function Pill({ label, value, pct, asPrice }) {
   )
 }
 
-export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, refreshing, onRefresh }) {
+export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, refreshing, onRefresh, searchQuery, setSearchQuery }) {
   const m = marketSummary || {}
   return (
     <div className="topbar">
@@ -60,8 +60,8 @@ export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, re
         <input
           aria-label="종목 검색"
           placeholder="종목명 또는 코드 검색"
-          disabled
-          title="검색 기능 준비중"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
       <button

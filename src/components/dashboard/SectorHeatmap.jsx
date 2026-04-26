@@ -89,10 +89,13 @@ export default function SectorHeatmap({ data = [] }) {
       {items.map((it) => {
         const big = it.w > 110 && it.h > 60
         const med = it.w > 70 && it.h > 40
+        const tipText = `${it.name} · ${pct(it.pct)} · ${KRW(it.cap)}`
         return (
           <div
             key={it.name}
             className="treemap-cell"
+            title={tipText}
+            aria-label={tipText}
             style={{
               position: 'absolute',
               left: it.x,

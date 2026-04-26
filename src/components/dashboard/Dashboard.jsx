@@ -33,6 +33,14 @@ export default function Dashboard() {
   const [selectedCode, setSelectedCode] = useState(null)
   const [sort, setSort] = useState({ key: 'netBuy3d', dir: 'desc' })
   const [topN, setTopN] = useState(10)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Clear search on category change so stale filters don't blank out a different universe
+  const [prevCategory, setPrevCategory] = useState(category)
+  if (prevCategory !== category) {
+    setPrevCategory(category)
+    setSearchQuery('')
+  }
 
   // Reset basis-specific sort key only — preserve user's sort on shared keys (price, changePct)
   const [prevBasis, setPrevBasis] = useState(basis)
@@ -52,7 +60,12 @@ export default function Dashboard() {
     document.documentElement.setAttribute('data-emphasis', 'strong')
   }, [])
 
-  const data = useMemo(() => (signals[category] || []).slice(0, topN), [signals, category, topN])
+  const data = useMemo(() => {
+    const list = signals[category] || []
+    const q = searchQuery.trim().toLowerCase()
+    if (q) return list.filter((s) => s.name.toLowerCase().includes(q) || s.code.includes(q))
+    return list.slice(0, topN)
+  }, [signals, category, topN, searchQuery])
 
   // Keep panel open across category swaps by promoting first row when current pick falls out
   const [prevCatTopN, setPrevCatTopN] = useState(category + ':' + topN)
@@ -97,6 +110,8 @@ export default function Dashboard() {
         lastUpdated={lastUpdatedDisplay}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
       />
       <div className="main">
         <div className="section-head" style={{ marginTop: 0, justifyContent: 'space-between' }}>
@@ -109,7 +124,9 @@ export default function Dashboard() {
             {status === 'idle' && '대기 중'}
           </div>
           <div className="meta">
-            3일 연속 순매수 · {basis === 'qty' ? '수량 기준' : '금액 기준'} 상위 {topN}종목
+            {searchQuery.trim()
+              ? `검색: "${searchQuery.trim()}" · ${data.length}건`
+              : `3일 연속 순매수 · ${basis === 'qty' ? '수량 기준' : '금액 기준'} 상위 ${topN}종목`}
           </div>
         </div>
 
@@ -126,7 +143,11 @@ export default function Dashboard() {
           count={data.length}
         />
         {data.length === 0 && status === 'ready' ? (
-          <div className="empty">선택한 카테고리에 해당하는 종목이 없습니다.</div>
+          <div className="empty">
+            {searchQuery.trim()
+              ? `"${searchQuery.trim()}" 검색 결과가 없습니다.`
+              : '선택한 카테고리에 해당하는 종목이 없습니다.'}
+          </div>
         ) : (
           <SignalTable
             data={data}
