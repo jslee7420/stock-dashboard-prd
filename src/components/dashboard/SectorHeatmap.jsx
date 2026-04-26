@@ -61,6 +61,7 @@ const colorFor = (p) => {
 
 export default function SectorHeatmap({ data = [] }) {
   const [size, setSize] = useState({ w: 800, h: 360 })
+  const [tip, setTip] = useState(null) // { item, x, y } in container-local coords
   const ref = useRef()
   useEffect(() => {
     if (!ref.current) return
@@ -80,6 +81,27 @@ export default function SectorHeatmap({ data = [] }) {
     return squarify(sorted, 0, 0, size.w, size.h)
   }, [data, size.w, size.h])
 
+  const handleMove = (it) => (e) => {
+    const rect = ref.current?.getBoundingClientRect()
+    if (!rect) return
+    setTip({ item: it, x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }
+
+  // Position tip with edge-aware flip; offset from cursor so it never sits under the pointer
+  const tipStyle = (() => {
+    if (!tip) return null
+    const TW = 180 // approximate tooltip width
+    const TH = 64
+    const PAD = 14
+    let left = tip.x + PAD
+    let top = tip.y + PAD
+    if (left + TW > size.w) left = tip.x - TW - PAD
+    if (top + TH > 360) top = tip.y - TH - PAD
+    if (left < 0) left = 4
+    if (top < 0) top = 4
+    return { left, top }
+  })()
+
   return (
     <div
       ref={ref}
@@ -90,12 +112,14 @@ export default function SectorHeatmap({ data = [] }) {
         const big = it.w > 110 && it.h > 60
         const med = it.w > 70 && it.h > 40
         const tipText = `${it.name} · ${pct(it.pct)} · ${KRW(it.cap)}`
-        const tipBelow = it.y < 60
         return (
           <div
             key={it.name}
-            className={'treemap-cell ' + (tipBelow ? 'tip-below' : '')}
+            className="treemap-cell"
             aria-label={tipText}
+            onMouseEnter={handleMove(it)}
+            onMouseMove={handleMove(it)}
+            onMouseLeave={() => setTip(null)}
             style={{
               position: 'absolute',
               left: it.x,
@@ -105,63 +129,57 @@ export default function SectorHeatmap({ data = [] }) {
               background: colorFor(it.pct),
               cursor: 'pointer',
               transition: 'filter 200ms',
+              overflow: 'hidden',
+              padding: big ? '12px 14px' : med ? '8px 10px' : '6px 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
             }}
           >
             <div
-              className="treemap-cell-inner"
               style={{
-                padding: big ? '12px 14px' : med ? '8px 10px' : '6px 8px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                width: '100%',
-                height: '100%',
+                fontFamily: 'var(--rui-font-body)',
+                fontWeight: 600,
+                color: '#fff',
+                letterSpacing: '0.16px',
+                fontSize: big ? 14 : med ? 12 : 11,
+                whiteSpace: 'nowrap',
                 overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
-              <div
-                style={{
-                  fontFamily: 'var(--rui-font-body)',
-                  fontWeight: 600,
-                  color: '#fff',
-                  letterSpacing: '0.16px',
-                  fontSize: big ? 14 : med ? 12 : 11,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {it.name}
-              </div>
-              {(big || med) && (
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
-                  <div
-                    className="num"
-                    style={{
-                      color: '#fff',
-                      fontWeight: 600,
-                      fontSize: big ? 22 : 15,
-                      letterSpacing: '-0.4px',
-                    }}
-                  >
-                    {pct(it.pct)}
-                  </div>
-                  {big && (
-                    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 500 }}>
-                      {KRW(it.cap)}
-                    </div>
-                  )}
+              {it.name}
+            </div>
+            {(big || med) && (
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                <div
+                  className="num"
+                  style={{
+                    color: '#fff',
+                    fontWeight: 600,
+                    fontSize: big ? 22 : 15,
+                    letterSpacing: '-0.4px',
+                  }}
+                >
+                  {pct(it.pct)}
                 </div>
-              )}
-            </div>
-            <div className="treemap-tip" role="tooltip">
-              <span className="t-name">{it.name}</span>
-              <span className={'t-pct num ' + (it.pct >= 0 ? 'up' : 'down')}>{pct(it.pct)}</span>
-              <span className="t-cap num">{KRW(it.cap)}</span>
-            </div>
+                {big && (
+                  <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 500 }}>
+                    {KRW(it.cap)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}
+      {tip && (
+        <div className="treemap-tip" role="tooltip" style={tipStyle}>
+          <span className="t-name">{tip.item.name}</span>
+          <span className={'t-pct num ' + (tip.item.pct >= 0 ? 'up' : 'down')}>{pct(tip.item.pct)}</span>
+          <span className="t-cap num">{KRW(tip.item.cap)}</span>
+        </div>
+      )}
     </div>
   )
 }

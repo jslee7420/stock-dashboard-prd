@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icon'
 
 function Pill({ label, value, pct, asPrice }) {
@@ -27,7 +28,105 @@ function Pill({ label, value, pct, asPrice }) {
   )
 }
 
-export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, refreshing, onRefresh, searchQuery, setSearchQuery }) {
+const MAX_RESULTS = 8
+
+function StockSearch({ candidates, onSelectStock }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const wrapRef = useRef(null)
+  const inputRef = useRef(null)
+
+  const list = useMemo(() => (candidates ? [...candidates.values()] : []), [candidates])
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    const matches = list.filter((s) => s.name.toLowerCase().includes(q) || s.code.includes(q))
+    return matches.slice(0, MAX_RESULTS)
+  }, [list, query])
+
+  // Reset highlight when results change
+  useEffect(() => { setActiveIdx(0) }, [query])
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const pick = (stock) => {
+    if (!stock) return
+    onSelectStock(stock.code)
+    setQuery('')
+    setOpen(false)
+    inputRef.current?.blur()
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setOpen(false)
+      inputRef.current?.blur()
+      return
+    }
+    if (!results.length) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIdx((i) => (i + 1) % results.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIdx((i) => (i - 1 + results.length) % results.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      pick(results[activeIdx])
+    }
+  }
+
+  return (
+    <div className="search-box" ref={wrapRef}>
+      <span className="icon" aria-hidden="true"><Icon name="search" size={14} /></span>
+      <input
+        ref={inputRef}
+        aria-label="종목 검색"
+        placeholder="종목명 또는 코드 검색"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+      />
+      {open && results.length > 0 && (
+        <div className="search-dropdown" role="listbox">
+          {results.map((s, i) => (
+            <button
+              key={s.code}
+              type="button"
+              role="option"
+              aria-selected={i === activeIdx}
+              className={'search-item' + (i === activeIdx ? ' active' : '')}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setActiveIdx(i)}
+              onClick={() => pick(s)}
+            >
+              <span className="ticker-icon-sm" aria-hidden="true">{s.iconText}</span>
+              <span className="search-name">{s.name}</span>
+              <span className="search-code num">{s.code}</span>
+              <span className="search-sector">{s.sector}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && query.trim() && results.length === 0 && (
+        <div className="search-dropdown empty" role="status">검색 결과가 없습니다</div>
+      )}
+    </div>
+  )
+}
+
+export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, refreshing, onRefresh, candidates, onSelectStock }) {
   const m = marketSummary || {}
   return (
     <div className="topbar">
@@ -55,15 +154,8 @@ export default function Topbar({ theme, setTheme, marketSummary, lastUpdated, re
         </span>
       </button>
 
-      <div className="search-box">
-        <span className="icon" aria-hidden="true"><Icon name="search" size={14} /></span>
-        <input
-          aria-label="종목 검색"
-          placeholder="종목명 또는 코드 검색"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <StockSearch candidates={candidates} onSelectStock={onSelectStock} />
+
       <button
         className="icon-btn"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
