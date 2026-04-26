@@ -21,9 +21,36 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
   const [chartLoading, setChartLoading] = useState(false)
   const [flow, setFlow] = useState([])
   const [flowLoading, setFlowLoading] = useState(false)
-  const dir = stock.changePct >= 0 ? 'up' : 'down'
+  // Live quote: signal stocks already carry price/marketCap, search-selected stocks fetch on demand.
+  const [live, setLive] = useState({
+    price: stock.price, change: stock.change, changePct: stock.changePct, marketCap: stock.marketCap, loading: false,
+  })
   const closeRef = useRef(null)
   useEffect(() => { closeRef.current?.focus() }, [stock.code])
+
+  // Sync live state when stock changes; fetch quote for non-signal stocks.
+  useEffect(() => {
+    setLive({
+      price: stock.price, change: stock.change, changePct: stock.changePct, marketCap: stock.marketCap,
+      loading: stock.price == null,
+    })
+    if (stock.price != null) return
+    let cancelled = false
+    fetch(`/api/stock/quote?code=${stock.code}&market=${stock.market}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return
+        if (j.success) {
+          setLive({ price: j.price, change: j.change, changePct: j.changePct, marketCap: j.marketCap, loading: false })
+        } else {
+          setLive((s) => ({ ...s, loading: false }))
+        }
+      })
+      .catch(() => { if (!cancelled) setLive((s) => ({ ...s, loading: false })) })
+    return () => { cancelled = true }
+  }, [stock.code, stock.market, stock.price, stock.change, stock.changePct, stock.marketCap])
+
+  const dir = (live.changePct ?? 0) >= 0 ? 'up' : 'down'
 
   // Fetch OHLCV when stock or range changes (data-fetching effect — setState-in-effect is the standard pattern)
   useEffect(() => {
@@ -48,8 +75,9 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
     return () => { cancelled = true }
   }, [stock.code, range])
 
-  // Fetch 5-day investor flow
+  // Fetch 5-day investor flow — depends on live.price (set after quote fetch for non-signal stocks)
   useEffect(() => {
+    if (live.price == null) { setFlow([]); return }
     let cancelled = false
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFlowLoading(true)
@@ -60,9 +88,9 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
         if (j.success && Array.isArray(j.data)) {
           setFlow(j.data.map((d) => ({
             date: formatNaverDate(d.date),
-            foreign: d.foreign * stock.price,
-            inst: d.institutional * stock.price,
-            indiv: -(d.foreign + d.institutional) * stock.price, // crude proxy: 실제 개인 = -(외인+기관+기타)
+            foreign: d.foreign * live.price,
+            inst: d.institutional * live.price,
+            indiv: -(d.foreign + d.institutional) * live.price, // crude proxy: 실제 개인 = -(외인+기관+기타)
           })))
         } else {
           setFlow([])
@@ -70,7 +98,7 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
       })
       .catch(() => { if (!cancelled) setFlow([]) })
       .finally(() => { if (!cancelled) setFlowLoading(false) })
-  }, [stock.code, stock.price])
+  }, [stock.code, live.price])
 
   return (
     <div
@@ -96,10 +124,18 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
       </div>
 
       <div className="price-block">
-        <div className={'price-now num ' + dir}>{stock.price.toLocaleString('ko-KR')}</div>
-        <div className={'price-delta ' + dir}>
-          {stock.change >= 0 ? '▲' : '▼'} {Math.abs(stock.change).toLocaleString('ko-KR', { maximumFractionDigits: 0 })} ({pct(stock.changePct)})
+        <div className={'price-now num ' + dir}>
+          {live.price != null
+            ? live.price.toLocaleString('ko-KR')
+            : (live.loading ? '…' : '—')}
         </div>
+        {live.change != null && live.changePct != null ? (
+          <div className={'price-delta ' + dir}>
+            {live.change >= 0 ? '▲' : '▼'} {Math.abs(live.change).toLocaleString('ko-KR', { maximumFractionDigits: 0 })} ({pct(live.changePct)})
+          </div>
+        ) : (
+          <div className="price-delta" style={{ color: 'var(--fg-muted)' }}>—</div>
+        )}
       </div>
 
       <div className="range-tabs" role="tablist" aria-label="차트 기간">
@@ -127,10 +163,10 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
       </div>
 
       <div className="metric-grid">
-        <div className="metric"><div className="k">시가총액</div><div className="v num">{stock.marketCap == null ? '—' : KRW(stock.marketCap)}</div></div>
-        <div className="metric"><div className="k">3일 누적 순매수</div><div className="v num up">{signed(stock.netBuy3d, KRW)}</div></div>
+        <div className="metric"><div className="k">시가총액</div><div className="v num">{live.marketCap == null ? '—' : KRW(live.marketCap)}</div></div>
+        <div className="metric"><div className="k">3일 누적 순매수</div><div className={'v num ' + (stock.netBuy3d == null ? '' : 'up')}>{stock.netBuy3d == null ? '—' : signed(stock.netBuy3d, KRW)}</div></div>
         <div className="metric"><div className="k">시총 대비</div><div className="v num">{stock.netBuyRatio == null ? '—' : (<>{stock.netBuyRatio.toFixed(2)}<span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 4 }}>%</span></>)}</div></div>
-        <div className="metric"><div className="k">연속일</div><div className="v num">{stock.consecDays}<span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 4 }}>일</span></div></div>
+        <div className="metric"><div className="k">연속일</div><div className="v num">{stock.consecDays == null ? '—' : (<>{stock.consecDays}<span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 4 }}>일</span></>)}</div></div>
       </div>
 
       <div className="invest-flow">

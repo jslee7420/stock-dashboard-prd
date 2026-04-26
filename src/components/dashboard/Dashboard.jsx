@@ -6,6 +6,7 @@ import SignalTable from './SignalTable'
 import SectorHeatmap from './SectorHeatmap'
 import DetailPanel from './DetailPanel'
 import { useSignals } from './useSignals'
+import { STOCK_UNIVERSE, universeByCode } from '../../lib/universe'
 
 const formatStamp = (isoOrDate) => {
   if (!isoOrDate) return '—'
@@ -65,10 +66,22 @@ export default function Dashboard() {
     return map
   }, [signals])
 
-  const selected = useMemo(
-    () => (selectedCode ? stockByCode.get(selectedCode) ?? null : null),
-    [stockByCode, selectedCode],
-  )
+  // Selected stock: 시그널에 있으면 풍부한 신호 데이터 사용, 없으면 universe에서 메타만 가져와
+  // DetailPanel이 실시간 quote API로 가격/시총을 채움.
+  const selected = useMemo(() => {
+    if (!selectedCode) return null
+    const fromSignals = stockByCode.get(selectedCode)
+    if (fromSignals) return fromSignals
+    const u = universeByCode(selectedCode)
+    if (!u) return null
+    return {
+      ...u,
+      price: null, change: null, changePct: null,
+      marketCap: null,
+      netBuy3d: null, netBuyQty3d: null, netBuyRatio: null, consecDays: null,
+      dual: false,
+    }
+  }, [selectedCode, stockByCode])
 
   // Esc closes detail panel
   useEffect(() => {
@@ -95,7 +108,7 @@ export default function Dashboard() {
         lastUpdated={lastUpdatedDisplay}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        candidates={stockByCode}
+        candidates={STOCK_UNIVERSE}
         onSelectStock={setSelectedCode}
       />
       <div className="main">

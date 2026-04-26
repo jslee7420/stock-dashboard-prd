@@ -37,7 +37,10 @@ function StockSearch({ candidates, onSelectStock }) {
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
 
-  const list = useMemo(() => (candidates ? [...candidates.values()] : []), [candidates])
+  const list = useMemo(() => {
+    if (!candidates) return []
+    return Array.isArray(candidates) ? candidates : [...candidates.values()]
+  }, [candidates])
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
