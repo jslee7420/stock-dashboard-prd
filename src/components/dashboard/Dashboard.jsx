@@ -35,6 +35,13 @@ export default function Dashboard() {
   const [sort, setSort] = useState({ key: 'netBuy3d', dir: 'desc' })
   const [topN, setTopN] = useState(10)
 
+  // Detail panel width — user-resizable, persisted across sessions
+  const [detailWidth, setDetailWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('detailWidth'))
+    return Number.isFinite(saved) && saved >= 320 && saved <= 900 ? saved : 420
+  })
+  useEffect(() => { localStorage.setItem('detailWidth', String(detailWidth)) }, [detailWidth])
+
   // Reset basis-specific sort key only — preserve user's sort on shared keys (price, changePct)
   const [prevBasis, setPrevBasis] = useState(basis)
   if (prevBasis !== basis) {
@@ -100,7 +107,10 @@ export default function Dashboard() {
   }, [refreshing, trigger])
 
   return (
-    <div className={'app' + (selected ? ' has-detail' : '')}>
+    <div
+      className={'app' + (selected ? ' has-detail' : '')}
+      style={{ '--detail-width': `${detailWidth}px` }}
+    >
       <Topbar
         theme={theme}
         setTheme={setTheme}
@@ -160,7 +170,15 @@ export default function Dashboard() {
 
         <div style={{ height: 24 }} />
       </div>
-      {selected && <DetailPanel stock={selected} chartStyle="candle" onClose={() => setSelectedCode(null)} />}
+      {selected && (
+        <DetailPanel
+          stock={selected}
+          chartStyle="candle"
+          onClose={() => setSelectedCode(null)}
+          width={detailWidth}
+          setWidth={setDetailWidth}
+        />
+      )}
     </div>
   )
 }

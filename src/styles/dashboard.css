@@ -91,7 +91,7 @@ html, body {
   transition: grid-template-columns 280ms cubic-bezier(.2,.7,.2,1);
 }
 .app.has-detail {
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: 1fr var(--detail-width, 420px);
   grid-template-areas:
     "topbar topbar"
     "main   detail";
@@ -632,6 +632,21 @@ html, body {
   position: relative;
   animation: detail-slide-in 280ms cubic-bezier(.2,.7,.2,1);
 }
+.detail-resize {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 150ms;
+}
+.detail-resize:hover,
+.detail-resize:active {
+  background: color-mix(in oklab, var(--fg) 22%, transparent);
+}
 @keyframes detail-slide-in {
   from { transform: translateX(40px); opacity: 0; }
   to   { transform: translateX(0); opacity: 1; }
@@ -861,7 +876,7 @@ html, body {
    ========================================================= */
 
 @media (max-width: 1280px) {
-  .app.has-detail { grid-template-columns: 1fr 380px; }
+  .app.has-detail { grid-template-columns: 1fr var(--detail-width, 380px); }
   .main { padding: 18px 20px; }
 }
 
@@ -901,6 +916,7 @@ html, body {
     padding: 64px 18px 28px;
     animation: detail-slide-up 280ms cubic-bezier(.2,.7,.2,1);
   }
+  .detail-resize { display: none; }
   .detail-close {
     top: 12px; right: 12px;
     width: 36px; height: 36px;

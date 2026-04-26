@@ -15,7 +15,10 @@ const formatNaverDate = (yyyymmdd) => {
   return `${yyyymmdd.slice(4, 6)}/${yyyymmdd.slice(6, 8)}`
 }
 
-export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
+const MIN_WIDTH = 320
+const MAX_WIDTH = 900
+
+export default function DetailPanel({ stock, chartStyle = 'candle', onClose, width = 420, setWidth }) {
   const [range, setRange] = useState('day')
   const [candles, setCandles] = useState([])
   const [chartLoading, setChartLoading] = useState(false)
@@ -100,6 +103,28 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
       .finally(() => { if (!cancelled) setFlowLoading(false) })
   }, [stock.code, live.price])
 
+  const onResizeStart = (e) => {
+    if (!setWidth) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = width
+    const onMove = (ev) => {
+      const dx = startX - ev.clientX // dragging left widens the panel
+      const next = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + dx))
+      setWidth(next)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
   return (
     <div
       className="detail"
@@ -107,6 +132,13 @@ export default function DetailPanel({ stock, chartStyle = 'candle', onClose }) {
       aria-modal="true"
       aria-labelledby="detail-title"
     >
+      <div
+        className="detail-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="패널 너비 조정"
+        onMouseDown={onResizeStart}
+      />
       <button ref={closeRef} className="detail-close" onClick={onClose} aria-label="상세 패널 닫기">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <path d="M18 6L6 18M6 6l12 12" />
