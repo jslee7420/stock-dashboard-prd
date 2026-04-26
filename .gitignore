@@ -29,3 +29,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Claude Code per-user permission overrides (not project-shared)
+.claude/settings.local.json
