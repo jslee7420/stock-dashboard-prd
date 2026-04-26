@@ -1,12 +1,13 @@
 // Vercel Serverless Function: 캐시된 수급 시그널 조회
-// Blob은 하루 1회 갱신되므로 CDN에서 60초 캐시 + 5분 SWR — 함수 호출 절감
+// 수동 trigger로 갱신된 직후에도 CDN이 이전 응답을 60초 동안 반환하던 문제로 no-store.
+// trigger 5분 쿨다운이 있어 호출량은 자연 제한됨.
 import { list } from '@vercel/blob'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+  res.setHeader('Cache-Control', 'no-store')
 
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
